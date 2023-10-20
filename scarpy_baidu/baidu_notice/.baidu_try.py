@@ -66,7 +66,7 @@ l_today=today()
 if __name__=="__main__":
     
     table_name="history"
-    db=pymysql.connect(host='localhost',password='yby258014',user='root',database='today_in_history')
+    db=pymysql.connect(host='localhost',password='yby',user='root',database='today_in_history')
     cur=db.cursor()
     
     
