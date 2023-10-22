@@ -1,3 +1,4 @@
+
 import requests
 import re
 import json
@@ -5,7 +6,22 @@ import pymysql
 from lxml import etree
 
 current_page=1
-
+def paqu_fujian_nums(list_download):#利用ajax请求,参数为下载地址的url,返回一个二维列表，一个小列表包含一个附件的两个参数,返回值是附件的xi[url1,url2]
+    list_result=[]#存放每个ajax请求的参数
+    base_parram={'type':'wbnewsfile','randomid':'nattach','wbnewsid':0,'owner':0}
+    list_download_nums=[]
+    for base in list_download:
+        parram_owner=re.match(pattern=pattern_parrams,string=base).group(1)
+        parram_wbnewsid=re.match(pattern=pattern_parrams,string=base).group(2)
+        base_parram['owner']=parram_owner
+        base_parram['wbnewsid']=parram_wbnewsid
+        list_result.append(base_parram)
+        base_parram={'type':'wbnewsfile','randomid':'nattach','wbnewsid':0,'owner':0}
+    for i in list_result:
+        response=requests.get(headers=head,url=fujian_download_baseurl,params=i).json()
+        list_download_nums.append(response['wbshowtimes'])
+    return list_download_nums
+    
 def scarpy(input_url):#返回一页的html文本内容
     response=requests.get(url=input_url,headers=head)
     return response.content.decode('utf-8')
@@ -60,6 +76,21 @@ def paqu_detail_url(now_url):#爬取每个通知详情页的url
         url="https://jwch.fzu.edu.cn/"+single_node.xpath("./a/@href")[0]#因为xpath查找出来的匹配对象会以列表形式返回，即使元素只有一个，所以要[0]来提取唯一的元素
         detail_url_set.append(url)
     return detail_url_set
+def paqu_fujian(page_url):#爬取附件的下载地址，名称,下载次数
+    content=scarpy(page_url)
+    list_download=[]
+    list_biaoti=[]
+    if "附件【" in content:
+        
+        list_download=re.findall(pattern_fujian_download,content,re.S)
+        list_biaoti=re.findall(pattern_fujian_name,content,re.S)
+        list_nums=paqu_fujian_nums(list_download)
+        return list_download,list_biaoti,list_nums
+    else:
+        
+        return  0
+        
+    
 def page_change(page):#当一页读完的时候，返回此页爬取的消息数，以及要读取的下一页的url,以列表的形式返回，l[0]为数量，l[1]为url
     if page==1:
         url='https://jwch.fzu.edu.cn/jxtz.htm'
@@ -69,23 +100,32 @@ def page_change(page):#当一页读完的时候，返回此页爬取的消息数
     respone_data=paqu_data(url)
     nums=len(paqu_writer(respone_data))  
     return nums,next_url
-     
+
 base_url="https://jwch.fzu.edu.cn/jxtz"
 new_url='https://jwch.fzu.edu.cn/jxtz.htm'#最新的通知主页
+fujian_download_baseurl='https://jwch.fzu.edu.cn/system/resource/code/news/click/clicktimes.jsp'
 
 xpath_='/html/body/div[1]/div[2]/div[2]/div/div/div[3]/div[1]/ul//text()'#用来或取一页里的所有通知
 xpath_detail_url='/html/body/div[1]/div[2]/div[2]/div/div/div[3]/div[1]/ul/li'
 xpath_page='/html/body/div[1]/div[2]/div[2]/div/div/div[3]/div[2]/div[1]/div/span[1]/span[9]/a/text()'
+xpath_fujian='/html/body/div/div[2]/div[2]/form/div/div[1]/div/ul//text()'
 
-
+fujian_dict={'detail_title':[],'down_url':[],'biaoti':[],'download_times':[]}
 pattern_time1=re.compile('(\d{4}-\d{2}-\d{2})')
 pattern_time2=re.compile('(\r\n)(\d{4}-\d{2}-\d{2})(\r\n)')
+pattern_fujian_download=r'<li>附件.*?href="(/system/.*?download.jsp.*?wbfileid=\d{1,})"'#附件的下载地址
+pattern_fujian_name=r'<li>附件.*?href=.*?附件\d：(.*?)</a>'
+pattern_parrams=r'.*?owner=(\d+)&wbfileid=(\d+)'
 head={'User-Agent':"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"}
-
 html_fzu=etree.HTML(scarpy(new_url))#最新页面的html标签对象，用于之后的xpath查找
-
 total_page=int(html_fzu.xpath(xpath_page)[0])
-
+def sql_fujian(dict):
+    total=[]
+    
+    for i in dict:
+        single=(dict[i])
+        
+    
 def main_scarpy(text_num,current_page=1):#爬取限定数量的通知，并以字典的形式返回,默认从最新一页开始爬
     current_url=new_url
     rest_num=text_num#剩余消息数，用于循环进行的判断
@@ -105,59 +145,21 @@ def main_scarpy(text_num,current_page=1):#爬取限定数量的通知，并以�
         current_url=page_change(current_page)[1]
         rest_num=rest_num-page_change(current_page)[0]
         current_page=current_page+1
+    for i in range(len(total_lresult['detail_url'])):
+        detail_url=total_lresult['detail_url'][i]
+        detail_title=total_lresult['title'][i]
+        if paqu_fujian(detail_url):
+            fujian_dict['detail_title']=fujian_dict['detail_title']+[detail_title]
+            fujian_dict['down_url']=fujian_dict['down_url']+paqu_fujian(detail_url)[0]
+            fujian_dict['biaoti']=fujian_dict['biaoti']+paqu_fujian(detail_url)[1]
+            fujian_dict['download_times']=fujian_dict['download_times']+paqu_fujian(detail_url)[2]
     return total_lresult    
 if __name__=="__main__":
-    db=pymysql.connect(host='localhost',user='root',password='yby258014',database='fzu_try')
-    cur=db.cursor()
-    num=int(input("请输入你要获取最近几条通知\n"))
-    total_data=main_scarpy(num,1)
-    table_name="fzu_notice_100"
-    creat_excute='''
-    create table fzu_notice_%d(
-        writers text,
-        time text,
-        title text,
-        detail_url text)
-    '''%(num)
-    try:
-        cur.execute(creat_excute)
-    except:
-        print("当前数据表已经为您更新")
-        drop_excute="drop table fzu_notice_%d"%(num)
-        cur.execute(drop_excute)
-        cur.execute(creat_excute)    
-        lresult_val=[]
-        values_base=list(total_data.values())
-        keys=",".join(total_data.keys())
-        key_list=list(total_data.keys())
-        for i in range(num):
-            for n in range(4):
-                lresult_val.append(values_base[n][i])  
-            insert_excute="insert into fzu_notice_%d(writers,time,title,detail_url) values('%s','%s','%s','%s')"%(num,lresult_val[0],lresult_val[1],lresult_val[2],lresult_val[3])
-            cur.execute(insert_excute)
-            lresult_val=[]
-        db.commit()
-        cur.close()
-        db.close()
-    else:
-        print("已经为您获取最新的%d条通知内容"%(num))
-        lresult_val=[]
-        values_base=list(total_data.values())
-        keys=",".join(total_data.keys())
-        key_list=list(total_data.keys())
-        print(len(values_base[3]))
-        for i in range(num):
-            for n in range(4):
-                lresult_val.append(values_base[n][i]) 
-            insert_excute="insert into fzu_notice_%d (writers,time,title,detail_url) values('%s','%s','%s','%s')"%(num,lresult_val[0],lresult_val[1],lresult_val[2],lresult_val[3])
-            cur.execute(insert_excute)
-            lresult_val=[]
+    #fl=open("page_text.html",'w+',encoding="utf-8")
+    #fl.write(scarpy('https://jwch.fzu.edu.cn/info/1036/13034.htm'))
+    main_scarpy(10)
+    for i in range(fujian_dict['biaoti']):
         
-        db.commit()
-        cur.close()
-        db.close()
-        
-    
-    
-    
-    
+        insert_excute="insert into fzu_fujian_%d (writers,time,title,detail_url) values('%s','%s','%s','%s')"%(fujian_dict['detail_title'][i],fujian_dict['down_url'][i],fujian_dict['biaoti'][i],fujian_dict['download_times'][i])
+        cur.execute
+
