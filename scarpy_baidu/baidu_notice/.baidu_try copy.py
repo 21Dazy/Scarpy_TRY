@@ -28,7 +28,13 @@ def scarpy_text(event_html):
     str_text ="".join(desc_text_list)
     str_text=str_text.replace("'","''")
     return str_text
-
+def scarpy_desc(event_link):
+    response_desc=scarpy_html(event_link)
+    desc_text=response_desc.xpath(desc_xpath)
+    a="".join(desc_text)
+    b=a.replace("'","''")
+    return b
+    
     
 
 
@@ -52,7 +58,8 @@ def main_scarpy():#获取当当年每一天历史发生的重要事件,及其年
                 event_year=str(single_event['year'])#事件年份
                 event_title=scarpy_text(single_event['title'])#事件标题，由于是html形式所以这边使用这个函数
                 event_type=str(single_event['type'])#事件类型
-                event_desc=scarpy_text(single_event['desc'])#事件概要
+                link_desc=single_event['link']#事件概要
+                event_desc=scarpy_desc(link_desc)
                 execute_insert_true="insert into history(year_event,title_event,type_event,desc_event) values('%s','%s','%s','%s')"%(event_year,event_title,event_type,event_desc)
                 cur.execute(execute_insert_true)
                 db.commit()
@@ -63,7 +70,7 @@ baseurl_ajax='https://baike.baidu.com/cms/home/eventsOnHistory/{}.json'
 head={'User-Agent':"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"}
 pattern=re.compile('(\d+)')
 total_data_xpath='/html/body/div[2]/div/div[2]/div/div/dl/dd'
-desc_xpath='/html/body/div[1]/div/div[2]/div[2]/div/div[1]/div/div[2]/div/text'
+desc_xpath='//html/body/div[1]/div/div[2]/div[2]/div/div[1]/div/div[2]/div/span//text()'
 l_today=today()
 if __name__=="__main__":
     
@@ -89,6 +96,6 @@ if __name__=="__main__":
         main_scarpy()            
         cur.close()
         db.close()
-     
-        
+    
+  
     

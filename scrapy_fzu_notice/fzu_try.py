@@ -3,7 +3,7 @@ import re
 import json
 import pymysql
 from lxml import etree
-
+import time
 current_page=1
 
 def scarpy(input_url):#返回一页的html文本内容
@@ -107,9 +107,11 @@ def main_scarpy(text_num,current_page=1):#爬取限定数量的通知，并以�
         current_page=current_page+1
     return total_lresult    
 if __name__=="__main__":
+    
     db=pymysql.connect(host='localhost',user='root',password='yby258014',database='fzu_try')
     cur=db.cursor()
     num=int(input("请输入你要获取最近几条通知\n"))
+    start=time.time()
     total_data=main_scarpy(num,1)
     table_name="fzu_notice_100"
     creat_excute='''
@@ -154,9 +156,10 @@ if __name__=="__main__":
             lresult_val=[]
         
         db.commit()
+        end=time.time()
         cur.close()
         db.close()
-        
+        print(end-start)
     
     
     

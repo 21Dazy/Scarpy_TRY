@@ -1,4 +1,4 @@
-
+'''
 import requests
 import re
 import json
@@ -162,4 +162,69 @@ if __name__=="__main__":
         
         insert_excute="insert into fzu_fujian_%d (writers,time,title,detail_url) values('%s','%s','%s','%s')"%(fujian_dict['detail_title'][i],fujian_dict['down_url'][i],fujian_dict['biaoti'][i],fujian_dict['download_times'][i])
         cur.execute
+        
+         notice_link=notice_base_url+re.match(pattern,one_notice.xpath("./a/@href")[0]).group(1)
+                        print(notice_link)
+                        notice_text=requests.get(url=notice_link,headers=head).content.decode('utf-8')
+                        
+                        notice_html=etree.HTML(notice_text)
+                        notice_writer=notice_html.xpath(writer_xpath)[0]
+                        notice_title=notice_html.xpath(title_xpath)[0]
+                        notice_time=notice_html.xpath(time_xpath)[0]
+'''
+from lxml import etree
+import requests
+import re
+import pymysql
+def scrapy(input_url):#返回一页的html文本内容
+    response=requests.get(url=input_url,headers=head)
+    return response.content.decode('utf-8')
+
+def paqu_fujian_nums(list_download):#利用ajax请求,参数为下载地址的url,返回一个二维列表，一个小列表包含一个附件的两个参数,返回值是附件的xi[url1,url2]
+    list_result=[]#存放每个ajax请求的参数
+    base_parram={'type':'wbnewsfile','randomid':'nattach','wbnewsid':0,'owner':0}
+    list_download_nums=[]
+    for base in list_download:
+        parram_owner=re.match(pattern=pattern_parrams,string=base).group(1)
+        parram_wbnewsid=re.match(pattern=pattern_parrams,string=base).group(2)
+        base_parram['owner']=parram_owner
+        base_parram['wbnewsid']=parram_wbnewsid
+        list_result.append(base_parram)
+        base_parram={'type':'wbnewsfile','randomid':'nattach','wbnewsid':0,'owner':0}
+    for i in list_result:
+        response=requests.get(headers=head,url=fujian_download_baseurl,params=i).json()
+        list_download_nums.append(response['wbshowtimes'])
+    return list_download_nums
+def paqu_fujian(page_url):#爬取附件的下载地址，名称,下载次数
+    content=scrapy(page_url)
+    list_download=[]
+    list_biaoti=[]
+    if "附件【" in content:
+        
+        list_download=re.findall(pattern_fujian_download,content,re.S)
+        list_biaoti=re.findall(pattern_fujian_name,content,re.S)
+        list_nums=paqu_fujian_nums(list_download)
+        return list_download,list_biaoti,list_nums
+    else:
+        
+        return  0
+pattern=r'.*?(/info/\d+/\d+.htm).*?'
+notice_base_url="https://jwch.fzu.edu.cn"
+base_url="https://jwch.fzu.edu.cn/jxtz"
+new_url='https://jwch.fzu.edu.cn/jxtz.htm'#最新的通知主页
+current_page=1
+fujian_download_baseurl='https://jwch.fzu.edu.cn/system/resource/code/news/click/clicktimes.jsp'
+head={'User-Agent':"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"}
+pattern_fujian_download=r'<li>附件.*?href="(/system/.*?download.jsp.*?wbfileid=\d{1,})"'#附件的下载地址
+pattern_fujian_name=r'<li>附件.*?href=.*?附件\d：(.*?)</a>'
+pattern_parrams=r'.*?owner=(\d+)&wbfileid=(\d+)'
+page_xpath='/html/body/div[1]/div[2]/div[2]/div/div/div[3]/div[2]/div[1]/div/span[1]/span[9]/a/text()'
+detail_set_xpath='/html/body/div[1]/div[2]/div[2]/div/div/div[3]/div[1]/ul/li'
+title_xpath='/html/body/div/div[2]/div[2]/form/div/div[1]/div/div[1]/h4//text()'
+writer_xpath='/html/body/div/div[2]/div[1]/p/a[3]/text()'
+time_xpath="/html/body/div/div[2]/div[2]/form/div/div[1]/div/div[1]/h4//text()"
+response=requests.get(url="https://jwch.fzu.edu.cn/info/1040/12997.htm",headers=head).content.decode('utf-8')
+a=etree.HTML(response).xpath(writer_xpath)
+print(a)
+    
 

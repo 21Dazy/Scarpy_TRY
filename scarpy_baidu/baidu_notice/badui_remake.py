@@ -1,15 +1,13 @@
-import requests
-import pymysql
-import re 
+'''
 from lxml import etree
-import datetime
+import pymysql
 import json
-def today():#如果要特定某一天的话可以用上
-    current_date=datetime.date.today()
-    s_current=str(current_date)
-    l_date=s_current.split('-')
-    return l_date
+import requests
+baseurl_ajax='https://baike.baidu.com/cms/home/eventsOnHistory/{}.json'
+head={'User-Agent':"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"}
 
+total_data_xpath='/html/body/div[2]/div/div[2]/div/div/dl/dd'
+desc_xpath="/html/body/div[1]/div/div[2]/div[2]/div/div[1]/div/div[2]/div/span//text()"
 
 def scarpy(url):
     html_text=requests.get(headers=head,url=url)
@@ -28,9 +26,13 @@ def scarpy_text(event_html):
     str_text ="".join(desc_text_list)
     str_text=str_text.replace("'","''")
     return str_text
-
+def scarpy_desc(event_link):
+    response_desc=scarpy_html(event_link)
+    desc_text=response_desc.xpath(desc_xpath)
+    a="".join(desc_text)
+    b=a.replace("'","''")
     
-
+    return b
 
 def main_scarpy():#获取当当年每一天历史发生的重要事件,及其年份，类型，概述，
     
@@ -52,22 +54,15 @@ def main_scarpy():#获取当当年每一天历史发生的重要事件,及其年
                 event_year=str(single_event['year'])#事件年份
                 event_title=scarpy_text(single_event['title'])#事件标题，由于是html形式所以这边使用这个函数
                 event_type=str(single_event['type'])#事件类型
-                event_desc=scarpy_text(single_event['desc'])#事件概要
+                link_desc=single_event['link']#事件概要
+                event_desc=scarpy_desc(link_desc)
                 execute_insert_true="insert into history(year_event,title_event,type_event,desc_event) values('%s','%s','%s','%s')"%(event_year,event_title,event_type,event_desc)
                 cur.execute(execute_insert_true)
                 db.commit()
-                
-pattern=re.compile('')
 
-baseurl_ajax='https://baike.baidu.com/cms/home/eventsOnHistory/{}.json'
-head={'User-Agent':"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"}
-pattern=re.compile('(\d+)')
-total_data_xpath='/html/body/div[2]/div/div[2]/div/div/dl/dd'
-desc_xpath='/html/body/div[1]/div/div[2]/div[2]/div/div[1]/div/div[2]/div/text'
-l_today=today()
+
 if __name__=="__main__":
     
-    table_name="history"
     db=pymysql.connect(host='localhost',password='yby258014',user='root',database='today_in_history')
     cur=db.cursor()
     
@@ -89,6 +84,56 @@ if __name__=="__main__":
         main_scarpy()            
         cur.close()
         db.close()
-     
-        
+''' 
+import requests
+from lxml import etree
+import re
+import json
+import pymysql
+pattern=r"[\u4e00-\u9fa5]"
+pattern_2=r'\[.*?\]'
+if __name__=='__main__':
+    yea=[]
+    db=pymysql.connect(host='localhost',user='root',password='yby258014',database='today_in_history')
     
+    print('success')
+    cur=db.cursor()
+    execute_create_table="create table bd(year text,title text,type text,de text)"
+    cur.execute(execute_create_table)
+    headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69'
+            }
+    url='https://baike.baidu.com/cms/home/eventsOnHistory/0'+'%s'+'.json?_='
+    num=1696082529004
+    month=[31,29,31,30,31,30,31,31,30,31,30,31]
+    for i in range(6):
+        page_text = requests.get((url+str(num-i))%(str(i+1))).json()
+        if i+1>10:
+            l1=str(i+1)
+        else:
+            l1='0'+str(i+1)
+        for j in range(month[i]):
+            if j+1<10:
+                l2=l1+'0'+str(j+1)
+                c=page_text[l1][l2]
+            else:
+                l2=l1+str(j+1)
+                c=page_text[l1][l2]
+            for d in c:
+                year=d['year']
+                title=''.join(re.findall(pattern,d['title']))
+                type_=d['type']
+                desct=d['desc']
+                if len(desct)!=0:
+                    tree=etree.HTML(desct)
+                    de=re.sub(pattern_2,'',''.join(tree.xpath('//text()'))).replace("'",'')
+                    print(len(de))
+                    sql = "insert into bd (year,title,type,de) values('%s','%s','%s','%s')"%(year, title, type_, de)
+                    cur.execute(sql)
+                    db.commit()
+                else:
+                    sql = "insert into bd (year,title,type,de) values('%s','%s','%s','%s')" % (year, title, type_, '')
+                    cur.execute(sql)
+    #cur.execute("delete from bd")
+    db.commit()
+    db.close()  

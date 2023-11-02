@@ -3,6 +3,7 @@ import re
 import json
 import pymysql
 from lxml import etree
+import time
 
 current_page=1
 def paqu_fujian_nums(list_download):#利用ajax请求,参数为下载地址的url,返回一个二维列表，一个小列表包含一个附件的两个参数,返回值是附件的xi[url1,url2]
@@ -126,6 +127,7 @@ def sql_fujian(dict):
         
     
 def main_scarpy(text_num,current_page=1):#爬取限定数量的通知，并以字典的形式返回,默认从最新一页开始爬
+    
     current_url=new_url
     rest_num=text_num#剩余消息数，用于循环进行的判断
     total_lresult={"writers":[],"time":[],"title":[],"detail_url":[]}#初始化存放字典
@@ -154,9 +156,11 @@ def main_scarpy(text_num,current_page=1):#爬取限定数量的通知，并以�
             fujian_dict['download_times']=fujian_dict['download_times']+paqu_fujian(detail_url)[2]
     return total_lresult    
 if __name__=="__main__":
+    
     db=pymysql.connect(host='localhost',user='root',password='yby258014',database='fzu_try')
     cur=db.cursor()
     num=int(input("请输入你要获取最近几条通知\n"))
+    start=time.time()
     total_data=main_scarpy(num,1)
     table_name="fzu_notice_100"
     creat_excute='''
@@ -197,7 +201,7 @@ if __name__=="__main__":
         for i in range(len(fujian_dict['biaoti'])):
             insert_excute="insert into fzu_fujian(title,download,name,times) values('%s','%s','%s','%d')"%(fujian_dict['detail_title'][i],fujian_dict['down_url'][i],fujian_dict['biaoti'][i],fujian_dict['download_times'][i])
             cur.execute(insert_excute)
-        cur.execute
+        
         db.commit()
         cur.close()
         db.close()
@@ -218,10 +222,12 @@ if __name__=="__main__":
             insert_excute="insert into fzu_fujian(title,download,name,times) values('%s','%s','%s','%d')"%(fujian_dict['detail_title'][i],fujian_dict['down_url'][i],fujian_dict['biaoti'][i],fujian_dict['download_times'][i])
             cur.execute(insert_excute)
         db.commit()
+        
         cur.close()
         db.close()
-        
-    
+    end=time.time()
+    print('耗时',end-start)
+
     
     
     

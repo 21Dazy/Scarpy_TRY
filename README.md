@@ -1,1 +1,2 @@
-# Scarpy_TRY
+# Scarpy_Try
+该文件夹只用于保存练习爬虫的代码
